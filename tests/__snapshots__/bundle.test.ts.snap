@@ -2,8 +2,8 @@
 
 exports[`bundle flat mode > snapshot flat output 1`] = `
 "local function __lf_require(name)
-  error("lua-forge: module '" .. name .. "' ไม่ถูก bundle " ..
-    "(target=fivem ไม่มี global require) — เพิ่ม module เข้า bundle หรือกำหนด config.runtimeRequire", 2)
+  error("lua-forge: module '" .. name .. "' was not bundled " ..
+    "(target=fivem has no global require) - add the module to the bundle or set config.runtimeRequire", 2)
 end
 
 local __mod_format_0 = (function()
@@ -50,8 +50,8 @@ start()
 
 exports[`bundle runtime mode > snapshot runtime output 1`] = `
 "local function __lf_require(name)
-  error("lua-forge: module '" .. name .. "' ไม่ถูก bundle " ..
-    "(target=fivem ไม่มี global require) — เพิ่ม module เข้า bundle หรือกำหนด config.runtimeRequire", 2)
+  error("lua-forge: module '" .. name .. "' was not bundled " ..
+    "(target=fivem has no global require) - add the module to the bundle or set config.runtimeRequire", 2)
 end
 local error, type, tostring = error, type, tostring
 local __modules = {}

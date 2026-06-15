@@ -132,8 +132,8 @@ export async function buildGraph(
 
 /**
  * post-order DFS:
- * - order = dependency-first (root อยู่ท้ายสุด)
- * - cycles = list ของ path ที่เป็นวง
+ * - order = dependency-first (root is last)
+ * - cycles = list of paths forming a cycle
  */
 function topoSort(
   rootPath: string,
@@ -149,7 +149,7 @@ function topoSort(
     const c = color.get(path) ?? 0;
     if (c === 2) return;
     if (c === 1) {
-      // เจอ back-edge -> ตัด cycle ออกมาจาก stack
+      // back-edge found -> slice the cycle out of the stack
       const start = stack.indexOf(path);
       cycles.push([...stack.slice(start), path]);
       return;

@@ -12,11 +12,11 @@ const ROOT_KEY = "__lua_forge_root__";
 
 /**
  * Runtime mode:
- * - register แต่ละ module เป็น factory function
- * - __bundle_require: fast path สำหรับ module ที่โหลดแล้ว
- * - localize global ที่ใช้บ่อย (type/tostring/error) ลด global lookup
- * - รองรับ circular require: ตั้ง entry ก่อน run factory (return partial เหมือน Lua ปกติ)
- * - ignored / dynamic require -> __lf_require (FiveM: error ชัด, ไม่พึ่ง global require)
+ * - register each module as a factory function
+ * - __bundle_require: fast path for already-loaded modules
+ * - localize frequently used globals (type/tostring/error) to cut global lookups
+ * - supports circular require: set entry before running the factory (returns partial, like normal Lua)
+ * - ignored / dynamic require -> __lf_require (FiveM: clear error, no global require dependency)
  */
 export function generateRuntime(
   graph: BundleGraph,
@@ -28,7 +28,7 @@ export function generateRuntime(
 
   const requireHelper = buildRequireHelper(config);
 
-  // loader runtime — boilerplate น้อย, fast path ก่อน
+  // runtime loader — minimal boilerplate, fast path first
   const loader = [
     requireHelper.decl,
     `local error, type, tostring = error, type, tostring`,
@@ -49,13 +49,13 @@ export function generateRuntime(
   head.push(loader);
 
   const blocks: string[] = [];
-  // register modules ตาม load order (dependency-first); root จะ register เป็น key พิเศษ
+  // register modules in load order (dependency-first); root is registered under a special key
   for (const path of graph.order) {
     const node = graph.modules.get(path);
     if (!node) continue;
 
-    // root ต้องลงทะเบียนใต้ ROOT_KEY และชื่อจริงของมันด้วย
-    // (กรณี circular ที่ module อื่น require root กลับมา)
+    // root must also be registered under its real names, not only ROOT_KEY
+    // (for the circular case where another module requires the root back)
     const names = node.isRoot ? [ROOT_KEY, ...node.names] : [...node.names];
     if (names.length === 0) continue;
 
@@ -65,7 +65,7 @@ export function generateRuntime(
     lines.push(`__modules[${luaString(names[0])}] = function(require)`);
     lines.push(indent(node.source.trim()));
     lines.push(`end`);
-    // ตัว factory เดียว แชร์ให้ทุกชื่อที่ชี้ไฟล์เดียวกัน
+    // one factory shared across all names pointing to the same file
     for (let i = 1; i < names.length; i++) {
       lines.push(
         `__modules[${luaString(names[i])}] = __modules[${luaString(names[0])}]`,

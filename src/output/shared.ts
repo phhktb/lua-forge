@@ -1,16 +1,16 @@
 import path from "node:path";
 import type { BundleGraph, ModuleNode, ResolvedConfig } from "../types.js";
 
-/** relative path จาก root + ใช้ forward slash เสมอ (ไม่ leak machine path / cross-platform) */
+/** Relative path from root, always forward-slashed (no machine path leak / cross-platform). */
 export function relativePath(config: ResolvedConfig, absPath: string): string {
   const rel = path.relative(config.root, absPath);
   return rel.split(path.sep).join("/");
 }
 
 /**
- * comment ระบุ module — gated ด้วย metadata
- * - metadata=false: "" (production ไม่ leak path)
- * - metadata=true/"debug": relative path เท่านั้น (ไม่มี absolute)
+ * Module-identifying comment — gated by metadata.
+ * - metadata=false: "" (production, no path leak)
+ * - metadata=true/"debug": relative path only (never absolute)
  */
 export function moduleComment(
   config: ResolvedConfig,
@@ -21,12 +21,12 @@ export function moduleComment(
   return `-- ${label}: ${relativePath(config, absPath)}`;
 }
 
-/** escape string ให้ใส่ใน Lua string literal ได้ */
+/** Escape a string so it can be placed in a Lua string literal. */
 export function luaString(value: string): string {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 }
 
-/** สร้างชื่อ local variable ที่ปลอดภัยจาก path (สำหรับ flat mode) */
+/** Build a safe local variable name from a path (for flat mode). */
 export function makeVarName(
   path: string,
   index: number,
@@ -42,22 +42,22 @@ export function makeVarName(
   return name;
 }
 
-/** ชื่อ helper สำหรับ require module ที่ไม่ถูก bundle (ignored/dynamic) */
+/** Helper name for requiring modules that are not bundled (ignored/dynamic). */
 export const REQUIRE_HELPER = "__lf_require";
 
 export interface RequireHelper {
-  /** declaration ที่ต้อง prepend (ว่างได้ถ้าไม่ต้องใช้) */
+  /** Declaration to prepend (may be empty if unused). */
   decl: string;
-  /** สร้าง call expression เช่น __lf_require("json") */
+  /** Build a call expression, e.g. __lf_require("json"). */
   call(name: string): string;
 }
 
 /**
- * ตัดสินใจว่า module ที่ไม่ถูก bundle จะถูก require ยังไง
- * - isolate: error เสมอ (bundle ปิดสนิท)
- * - มี runtimeRequire: ใช้ expression ที่ผู้ใช้กำหนด
- * - target generic: ใช้ global require (standard Lua มี)
- * - target fivem (default): error ชัดเจน เพราะ FiveM ไม่มี global require
+ * Decide how modules that are not bundled get required.
+ * - isolate: always error (fully closed bundle)
+ * - runtimeRequire set: use the user-provided expression
+ * - target generic: use the global require (standard Lua has it)
+ * - target fivem (default): clear error, since FiveM has no global require
  */
 export function buildRequireHelper(config: ResolvedConfig): RequireHelper {
   const call = (name: string) => `${REQUIRE_HELPER}(${luaString(name)})`;
@@ -70,17 +70,17 @@ export function buildRequireHelper(config: ResolvedConfig): RequireHelper {
     return { decl: `local ${REQUIRE_HELPER} = require`, call };
   }
 
-  // fivem (default) หรือ isolate -> ไม่พึ่ง global require, error ชัดเจน
+  // fivem (default) or isolate -> do not rely on a global require, error clearly
   const decl =
     `local function ${REQUIRE_HELPER}(name)\n` +
-    `  error("lua-forge: module '" .. name .. "' ไม่ถูก bundle " ..\n` +
-    `    "(target=${config.target} ไม่มี global require) — ` +
-    `เพิ่ม module เข้า bundle หรือกำหนด config.runtimeRequire", 2)\n` +
+    `  error("lua-forge: module '" .. name .. "' was not bundled " ..\n` +
+    `    "(target=${config.target} has no global require) - ` +
+    `add the module to the bundle or set config.runtimeRequire", 2)\n` +
     `end`;
   return { decl, call };
 }
 
-/** banner metadata (optional) — ไม่มี absolute path ทุกกรณี */
+/** Metadata banner (optional) — never contains an absolute path. */
 export function metadataBanner(graph: BundleGraph, config: ResolvedConfig): string {
   if (!config.metadata) return "";
   const lines = [
@@ -96,8 +96,8 @@ export function metadataBanner(graph: BundleGraph, config: ResolvedConfig): stri
 }
 
 /**
- * minify แบบเบามาก — ลบ comment ทั้งบรรทัด + trailing whitespace + บรรทัดว่าง
- * ไม่แตะ string/structure เพื่อไม่ให้ behavior เปลี่ยน
+ * Very light minify — strip full-line comments + trailing whitespace + blank lines.
+ * Does not touch strings/structure so behavior never changes.
  */
 export function lightMinify(code: string): string {
   return code
@@ -108,8 +108,8 @@ export function lightMinify(code: string): string {
 }
 
 /**
- * แทนที่ require call ทั้งหมดใน source ด้วย replacement string
- * ใช้ range จาก parser, replace จากท้ายไปหน้าเพื่อรักษา index
+ * Replace all require calls in the source with a replacement string.
+ * Uses parser ranges, replacing back-to-front to keep indices valid.
  */
 export function replaceRequires(
   node: ModuleNode,

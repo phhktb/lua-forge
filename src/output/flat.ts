@@ -8,24 +8,24 @@ import {
   replaceRequires,
 } from "./shared.js";
 
-/** error เมื่อ flat mode เจอ circular require (จัดการไม่ได้แบบ flat) */
+/** Error when flat mode hits a circular require (cannot be handled flatly). */
 export function assertFlatable(graph: BundleGraph): void {
   if (graph.cycles.length === 0) return;
   const detail = graph.cycles
     .map((cycle) => "    " + cycle.join(" -> "))
     .join("\n");
   throw new Error(
-    `flat mode ใช้กับ circular require ไม่ได้ — เจอ ${graph.cycles.length} cycle:\n${detail}\n` +
-      `  แก้: ใช้ mode "runtime" หรือ ตัด circular dependency`,
+    `flat mode cannot handle circular requires — found ${graph.cycles.length} cycle(s):\n${detail}\n` +
+      `  fix: use mode "runtime" or break the circular dependency`,
   );
 }
 
 /**
  * Flat mode:
- * - เรียง module ตาม dependency order (deps ก่อน)
- * - แต่ละ module = local var = (function() ... end)()
- * - require("dep") ถูกแทนด้วยชื่อ local var ตรง ๆ ไม่มี runtime loader
- * - root code อยู่ท้ายสุด
+ * - order modules dependency-first (deps before importers)
+ * - each module = local var = (function() ... end)()
+ * - require("dep") is replaced by its local var directly, no runtime loader
+ * - root code goes last
  */
 export function generateFlat(
   graph: BundleGraph,
@@ -45,14 +45,14 @@ export function generateFlat(
   const requireHelper = buildRequireHelper(config);
   let usedRequireHelper = false;
 
-  // map module name -> var (ผ่าน deps ของแต่ละ node)
+  // map module name -> var (via each node's deps)
   const body: string[] = [];
 
   for (const path of graph.order) {
     const node = graph.modules.get(path);
     if (!node) continue;
 
-    // resolver: module name -> var name (bundled dep) หรือ __lf_require (ignored/dynamic)
+    // resolver: module name -> var name (bundled dep) or __lf_require (ignored/dynamic)
     const nameToVar = new Map<string, string>();
     for (const dep of node.deps) {
       const depVar = varByPath.get(dep.path);
@@ -61,7 +61,7 @@ export function generateFlat(
     const transformed = replaceRequires(node, (name) => {
       const depVar = nameToVar.get(name);
       if (depVar) return depVar;
-      // require ที่ไม่ถูก bundle (ignored) -> ผ่าน helper, ไม่คง global require ดิบ
+      // require that is not bundled (ignored) -> go through helper, never keep raw global require
       usedRequireHelper = true;
       return requireHelper.call(name);
     }).trim();
@@ -84,7 +84,7 @@ export function generateFlat(
   if (banner) head.push(banner.trimEnd());
   if (usedRequireHelper) head.push(requireHelper.decl);
 
-  // คั่น block ด้วยบรรทัดว่างเดียว — อ่าน debug ได้ ไม่มี blank เกิน
+  // separate blocks with a single blank line — debug-readable, no excess blanks
   const code = [...head, ...body].join("\n\n") + "\n";
   return config.minify ? lightMinify(code) : code;
 }

@@ -12,10 +12,10 @@ import type {
 } from "./types.js";
 
 /**
- * ตัดสิน mode จริงจาก config.mode + cycles
- * - "runtime" / "flat" -> ตามนั้น (flat + circular -> ใช้ circular policy)
- * - "auto" -> flat ถ้าไม่ circular, ไม่งั้นใช้ circular policy
- * circular policy: "runtime-fallback" -> runtime, "error" -> throw ชัดเจน
+ * Decide the actual mode from config.mode + cycles.
+ * - "runtime" / "flat" -> as-is (flat + circular -> apply circular policy)
+ * - "auto" -> flat when no circular, otherwise apply circular policy
+ * circular policy: "runtime-fallback" -> runtime, "error" -> throw clearly
  */
 function resolveMode(
   graph: BundleGraph,
@@ -43,7 +43,7 @@ function generate(
   config: ResolvedConfig,
   mode: "runtime" | "flat",
 ): string {
-  // ส่ง config ที่ mode = ตัวจริง เพื่อให้ banner แสดง mode ถูก
+  // pass config with mode = the actual one so the banner shows the right mode
   const resolved: ResolvedConfig = { ...config, mode };
   return mode === "flat"
     ? generateFlat(graph, resolved)
@@ -110,16 +110,16 @@ async function buildFrom(
   };
 }
 
-/** bundle จาก entry file */
+/** Bundle from an entry file. */
 export async function runBundle(config: ResolvedConfig): Promise<BundleResult> {
   if (!config.entry) {
-    throw new Error("ต้องระบุ entry สำหรับ bundle()");
+    throw new Error("entry is required for bundle()");
   }
   const cache = createCache(config.persistentCache);
   return buildFrom(config.entry, config, cache);
 }
 
-/** bundle จาก source string ตรง ๆ (virtual entry) */
+/** Bundle directly from a source string (virtual entry). */
 export async function runBundleString(
   source: string,
   config: ResolvedConfig,
@@ -130,12 +130,12 @@ export async function runBundleString(
   return buildFrom(virtualEntry, config, cache);
 }
 
-/** สร้าง dependency graph อย่างเดียว (ไม่ generate output) */
+/** Build the dependency graph only (no output generation). */
 export async function runInspect(
   config: ResolvedConfig,
 ): Promise<BundleGraph> {
   if (!config.entry) {
-    throw new Error("ต้องระบุ entry สำหรับ inspect()");
+    throw new Error("entry is required for inspect()");
   }
   const cache = createCache(config.persistentCache);
   const graph = await buildGraph({

@@ -1,47 +1,137 @@
 # lua-forge
 
-Lua bundler สำหรับ FiveM — รวม Lua หลายไฟล์เป็นไฟล์เดียว เร็ว เบา ดูแลง่าย
-เขียนด้วย Node.js + TypeScript (modular, ไม่มี OOP หนัก)
+A Lua bundler for FiveM — combine many Lua files into one. Fast, lightweight, easy to maintain.
 
-## ทำไม
+## Why
 
-- เร็วกว่า `luabundle` (async I/O + cache content/stat/resolve/parse)
-- output 2 mode: `runtime` (รองรับ circular) และ `flat` (เบาสุด เหมาะ production)
-- error ชัด: บอก module name + importer + line/column + searched paths
-- ใช้ได้ทั้ง CLI และ API
-- ไม่ผูกกับ FiveM logic, ไม่ obfuscate/minify by default
+- Fast builds (content/stat/resolve/parse caching)
+- Two output modes: `runtime` (handles circular requires) and `flat` (smallest, production-ready)
+- Clear errors: module name + importer + line/column + searched paths
+- Usable from both the CLI and the API
+- No coupling to FiveM logic; no obfuscation/minification by default
 
-## ติดตั้ง
+## Install
 
 ```bash
 npm install lua-forge
 ```
 
+## Writing Lua modules
+
+Author your code as plain Lua files. A module returns a value (usually a table);
+other files pull it in with `require("module.name")`. Dots map to folders,
+exactly like Lua's `package.path` (`require("modules.format")` -> `modules/format.lua`).
+
+```
+src/client/
+├── main.lua                 -- entry
+├── utils.lua
+├── shared/config.lua
+└── modules/format.lua
+```
+
+```lua
+-- src/client/modules/format.lua
+local format = {}
+
+function format.bold(text)
+  return "**" .. text .. "**"
+end
+
+return format            -- the module's return value
+```
+
+```lua
+-- src/client/utils.lua
+local format = require("modules.format")   -- resolved & inlined by the bundler
+
+local utils = {}
+
+function utils.greet(name)
+  return format.bold("hello " .. name)
+end
+
+return utils
+```
+
+```lua
+-- src/client/main.lua (entry — no return needed)
+local utils  = require("utils")
+local config = require("shared.config")
+
+print(utils.greet(config.name))
+```
+
+Build it into a single file:
+
+```bash
+lua-forge build --entry src/client/main.lua --out build/client.lua --root src/client
+```
+
+In the generated bundle, every `require("...")` that the bundler resolved is
+replaced — there is no runtime `require` left for those. FiveM-provided globals
+(`exports`, `Citizen`, `RegisterNetEvent`, `Config`, ...) are left untouched
+because they are not `require` calls.
+
+Then point your resource at the single bundled file:
+
+```lua
+-- fxmanifest.lua
+fx_version 'cerulean'
+game 'gta5'
+
+client_scripts { 'build/client.lua' }
+server_scripts { 'build/server.lua' }
+```
+
+### Modules not bundled (ignored / dynamic)
+
+FiveM has no global `require`, so a module that is **not** bundled cannot be
+required at runtime by default. List such names in `ignoredModuleNames` and
+provide a loader via `runtimeRequire`:
+
+```lua
+-- somewhere loaded before the bundle (e.g. a shared_script)
+_G.myloader = function(name)
+  if name == "json" then return require_or_export_your_json() end
+end
+```
+
+```bash
+lua-forge build --entry src/server/main.lua --out build/server.lua \
+  --root src/server --ignore json --require-fn "_G.myloader"
+```
+
+Inside the bundle the ignored `require("json")` becomes `__lf_require("json")`,
+which routes to your `runtimeRequire` expression. Without a loader (default
+`target: "fivem"`) it raises a clear error naming the missing module instead of
+crashing on a nil call.
+
 ## CLI
 
 ```bash
-# build (default mode = auto: flat ถ้าไม่ circular)
+# build (default mode = auto: flat when there is no circular require)
 lua-forge build --entry client/main.lua --out dist/client.lua
 
-# multi-entry: build client + server พร้อมกันจาก config
+# multi-entry: build client + server together from a config
 lua-forge build --config lua-forge.config.ts
 
-# ดู dependency graph
+# inspect the dependency graph
 lua-forge inspect --entry client/main.lua --root .
 
 # benchmark runtime vs flat
 lua-forge benchmark --entry client/main.lua --runs 50
 ```
 
-Flags หลัก: `--entry --out --config --mode flat|runtime|auto --target fivem|generic --metadata [true|false|debug] --circular error|runtime-fallback --root --paths --ignore --lua --require-fn --minify --isolate --stats`
-(`--paths` / `--ignore` ใส่ซ้ำได้)
+Main flags: `--entry --out --config --mode flat|runtime|auto --target fivem|generic --metadata [true|false|debug] --circular error|runtime-fallback --root --paths --ignore --lua --require-fn --minify --isolate --stats`
+(`--paths` / `--ignore` can be repeated)
 
 ## API
 
 ```ts
 import { bundle, bundleString, inspect } from "lua-forge";
 
-// bundle จาก entry file (เขียนไฟล์ถ้ามี output)
+// bundle from an entry file (writes the file if output is set)
 const code = await bundle({
   entry: "client/main.lua",
   output: "dist/client.lua",
@@ -49,64 +139,64 @@ const code = await bundle({
   ignoredModuleNames: ["json"],
 });
 
-// bundle จาก source string
+// bundle from a source string
 const out = await bundleString(`local f = require("util")`, { root: "." });
 
-// dependency graph อย่างเดียว
+// dependency graph only
 const graph = await inspect({ entry: "server/main.lua" });
 ```
 
 ## Config
 
-ดู [`lua-forge.config.example.ts`](./lua-forge.config.example.ts)
+See [`lua-forge.config.example.ts`](./lua-forge.config.example.ts)
 
-| field | default | คำอธิบาย |
+| field | default | description |
 | --- | --- | --- |
 | `entry` | — | entry file |
 | `output` | — | output path |
 | `mode` | `auto` | `auto` \| `flat` \| `runtime` |
-| `circular` | `error` | `error` \| `runtime-fallback` (เมื่อ flat เจอ circular) |
-| `entries` | — | multi-entry build (เช่น client/server) |
+| `circular` | `error` | `error` \| `runtime-fallback` (when flat hits a circular require) |
+| `entries` | — | multi-entry build (e.g. client/server) |
 | `paths` | `["?", "?.lua", "modules/?.lua"]` | package.path-style patterns |
-| `root` | dir ของ entry | base dir สำหรับ resolve |
-| `ignoredModuleNames` | `[]` | module ที่ปล่อยให้ runtime require เอง |
-| `metadata` | `false` | `false` (production) \| `true` \| `"debug"` — ไม่ leak absolute path |
-| `minify` | `false` | minify เบา (ลบ comment/บรรทัดว่าง) |
-| `isolate` | `false` | ไม่ fallback ไป global require |
+| `root` | entry's dir | base dir for resolution |
+| `ignoredModuleNames` | `[]` | modules left for the runtime to require itself |
+| `metadata` | `false` | `false` (production) \| `true` \| `"debug"` — never leaks an absolute path |
+| `minify` | `false` | light minify (strips comments/blank lines) |
+| `isolate` | `false` | do not fall back to the global require |
 | `luaVersion` | `5.4` | `5.4` \| `5.3` \| `LuaJIT` |
 | `target` | `fivem` | `fivem` \| `generic` |
-| `runtimeRequire` | — | Lua expression สำหรับ require module ที่ไม่ถูก bundle |
-| `resolveHook` | — | custom resolve |
-| `dynamicRequireHook` | — | จัดการ `require(var)` |
-| `persistentCache` | `false` | path เก็บ parse cache จาก content hash |
+| `runtimeRequire` | — | Lua expression to require modules that are not bundled |
+| `resolveHook` | — | custom resolution |
+| `dynamicRequireHook` | — | handle `require(var)` |
+| `persistentCache` | `false` | path to store the parse cache (keyed by content hash) |
 
 ## Output modes
 
-**auto** (default) — เลือก flat ถ้าไม่มี circular; ถ้ามี circular ทำตาม `circular`
-(`error` = หยุดพร้อมบอก cycle, `runtime-fallback` = สลับไป runtime อัตโนมัติ)
+**auto** (default) — picks flat when there is no circular require; on a circular require it follows `circular`
+(`error` = stop and report the cycle, `runtime-fallback` = switch to runtime automatically)
 
-**flat** — เรียง module ตาม dependency order, แต่ละ module เป็น local var
-ไม่มี runtime loader, เบากว่า, เร็วกว่าตอน resource start
-ใช้ไม่ได้ถ้ามี circular require (error หรือ fallback ตาม `circular`)
+**flat** — orders modules dependency-first, each module becomes a local var.
+No runtime loader, smaller, faster at resource start.
+Cannot be used with circular requires (errors, or falls back per `circular`).
 
-**runtime** — มี `__bundle_require` + module factory + loaded cache (fast path)
-+ localize global (`type`/`tostring`/`error`) รองรับ circular require
+**runtime** — has `__bundle_require` + module factories + a loaded cache (fast path),
+plus localized globals (`type`/`tostring`/`error`); supports circular requires.
 
-## FiveM: ไม่มี global require
+## FiveM: no global require
 
-FiveM (CfxLua) ไม่มี global `require` — lua-forge เลยสร้าง require runtime ของตัวเอง
-(`__bundle_require` ใน runtime mode / inline var ใน flat mode) output จึง **ไม่พึ่ง global `require`**
+FiveM (CfxLua) has no global `require` — so lua-forge builds its own require runtime
+(`__bundle_require` in runtime mode / inline vars in flat mode). The output therefore **does not rely on a global `require`**.
 
-module ที่ไม่ถูก bundle (อยู่ใน `ignoredModuleNames` หรือ dynamic require):
-- `target: "fivem"` (default) → เรียกแล้ว **error ชัดเจน** บอกชื่อ module (ไม่ crash แบบ call nil)
-- ถ้ามี loader เอง ตั้ง `runtimeRequire` เช่น `"_G.myloader"` หรือ `"exports.x.require"`
-- `target: "generic"` → ใช้ global `require` ปกติ (standard Lua)
+Modules that are not bundled (listed in `ignoredModuleNames` or required dynamically):
+- `target: "fivem"` (default) → calling it raises a **clear error** with the module name (no crash from calling nil)
+- if you have your own loader, set `runtimeRequire`, e.g. `"_G.myloader"` or `"exports.x.require"`
+- `target: "generic"` → uses the normal global `require` (standard Lua)
 
 ## Dev
 
 ```bash
 npm install
-npm test        # vitest
-npm run build   # tsup -> dist/
+npm test
+npm run build      # -> dist/
 npm run typecheck
 ```

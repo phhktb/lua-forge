@@ -47,7 +47,7 @@ function parseMetadata(value: string | boolean | undefined): MetadataMode | unde
   return true;
 }
 
-/** รวม config จากไฟล์ + flags (flags ชนะ) */
+/** Merge config from file + flags (flags win). */
 async function buildConfig(flags: CliFlags): Promise<BundlerConfig> {
   const fileConfig: BundlerConfig = flags.config
     ? await loadConfigFile(flags.config)
@@ -70,7 +70,7 @@ async function buildConfig(flags: CliFlags): Promise<BundlerConfig> {
   if (metadata !== undefined) merged.metadata = metadata;
   if (flags.minify) merged.minify = true;
   if (flags.isolate) merged.isolate = true;
-  // ถ้าระบุ --entry จาก CLI ให้ override multi-entry config
+  // if --entry is given on the CLI, override the multi-entry config
   if (flags.entry) merged.entries = undefined;
   return merged;
 }
@@ -91,22 +91,22 @@ function printStats(stats: BundleStats): void {
 }
 
 cli
-  .command("build", "รวม Lua หลายไฟล์เป็นไฟล์เดียว")
+  .command("build", "Bundle multiple Lua files into one")
   .option("--entry <file>", "entry file")
   .option("--out <file>", "output file")
   .option("--config <file>", "config file (.ts/.js/.json)")
   .option("--mode <mode>", "flat | runtime | auto")
-  .option("--root <dir>", "root directory สำหรับ resolve")
-  .option("--paths <pattern>", "path pattern (ใช้ซ้ำได้)")
-  .option("--ignore <name>", "ignored module name (ใช้ซ้ำได้)")
+  .option("--root <dir>", "root directory for resolution")
+  .option("--paths <pattern>", "path pattern (repeatable)")
+  .option("--ignore <name>", "ignored module name (repeatable)")
   .option("--lua <version>", "5.4 | 5.3 | LuaJIT")
   .option("--target <target>", "fivem | generic")
-  .option("--require-fn <expr>", "Lua expression สำหรับ require module ที่ไม่ถูก bundle")
+  .option("--require-fn <expr>", "Lua expression to require modules that are not bundled")
   .option("--circular <mode>", "error | runtime-fallback")
   .option("--metadata [mode]", "true | false | debug")
   .option("--minify", "minify output")
   .option("--isolate", "isolate global require")
-  .option("--stats", "แสดง benchmark/debug stats")
+  .option("--stats", "show benchmark/debug stats")
   .action(async (flags: CliFlags) => {
     const base = await buildConfig(flags);
     const entries = expandEntries(base);
@@ -114,11 +114,11 @@ cli
     for (const { name, config: entryConfig } of entries) {
       const config = resolveConfig(entryConfig);
       if (!config.entry) {
-        console.error(`error: [${name}] ต้องระบุ entry`);
+        console.error(`error: [${name}] entry is required`);
         process.exit(1);
       }
       if (!config.output) {
-        console.error(`error: [${name}] ต้องระบุ output`);
+        console.error(`error: [${name}] output is required`);
         process.exit(1);
       }
 
@@ -135,18 +135,18 @@ cli
   });
 
 cli
-  .command("inspect", "แสดง dependency graph ของ entry")
+  .command("inspect", "Show the dependency graph of an entry")
   .option("--entry <file>", "entry file")
   .option("--config <file>", "config file")
   .option("--root <dir>", "root directory")
-  .option("--paths <pattern>", "path pattern (ใช้ซ้ำได้)")
-  .option("--ignore <name>", "ignored module name (ใช้ซ้ำได้)")
+  .option("--paths <pattern>", "path pattern (repeatable)")
+  .option("--ignore <name>", "ignored module name (repeatable)")
   .option("--lua <version>", "5.4 | 5.3 | LuaJIT")
-  .option("--json", "output เป็น JSON")
+  .option("--json", "output as JSON")
   .action(async (flags: CliFlags & { json?: boolean }) => {
     const config = resolveConfig(await buildConfig(flags));
     if (!config.entry) {
-      console.error("error: ต้องระบุ --entry");
+      console.error("error: --entry is required");
       process.exit(1);
     }
     const graph = await runInspect(config);
@@ -198,14 +198,14 @@ function countOccurrences(text: string, needle: string): number {
 }
 
 cli
-  .command("benchmark", "วัดเวลา + เทียบ flat vs runtime mode")
+  .command("benchmark", "Measure time + compare flat vs runtime mode")
   .option("--entry <file>", "entry file")
   .option("--config <file>", "config file")
   .option("--root <dir>", "root directory")
-  .option("--paths <pattern>", "path pattern (ใช้ซ้ำได้)")
-  .option("--ignore <name>", "ignored module name (ใช้ซ้ำได้)")
+  .option("--paths <pattern>", "path pattern (repeatable)")
+  .option("--ignore <name>", "ignored module name (repeatable)")
   .option("--lua <version>", "5.4 | 5.3 | LuaJIT")
-  .option("--runs <n>", "จำนวนรอบ", { default: 20 })
+  .option("--runs <n>", "number of runs", { default: 20 })
   .action(async (flags: CliFlags & { runs?: number }) => {
     const base = await buildConfig(flags);
     const runs = Number(flags.runs) || 20;
@@ -213,7 +213,7 @@ cli
     for (const mode of ["flat", "runtime"] as BundleMode[]) {
       const config = resolveConfig({ ...base, mode, entries: undefined });
       if (!config.entry) {
-        console.error("error: ต้องระบุ --entry");
+        console.error("error: --entry is required");
         process.exit(1);
       }
 
@@ -240,7 +240,7 @@ cli
       }
 
       if (failed) {
-        console.log(`${mode.padEnd(8)} ข้าม (${failed})`);
+        console.log(`${mode.padEnd(8)} skipped (${failed})`);
         continue;
       }
       times.sort((a, b) => a - b);

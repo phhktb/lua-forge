@@ -2,17 +2,17 @@ import { defineConfig } from "lua-forge";
 
 export default defineConfig({
   target: "fivem",
-  // "auto" = flat ถ้าไม่ circular, ไม่งั้นตาม circular policy
+  // "auto" = flat when there is no circular require, otherwise follow the circular policy
   mode: "auto",
-  // false = production (ไม่ leak path), true / "debug" = ใส่ relative path comment
+  // false = production (no path leak), true / "debug" = add relative path comments
   metadata: false,
-  // เจอ circular ใน flat: "error" หรือ "runtime-fallback"
+  // on a circular require in flat: "error" or "runtime-fallback"
   circular: "error",
 
   paths: ["?", "?.lua", "modules/?.lua", "src/?.lua", "src/?/init.lua"],
   ignoredModuleNames: [],
 
-  // multi-entry: build client + server ด้วยคำสั่งเดียว (lua-forge build --config ...)
+  // multi-entry: build client + server with a single command (lua-forge build --config ...)
   entries: {
     client: {
       entry: "src/client/main.lua",
@@ -24,7 +24,7 @@ export default defineConfig({
     },
   },
 
-  // module ที่ไม่ถูก bundle จะ require ผ่าน expression นี้ (FiveM ไม่มี global require)
+  // modules that are not bundled are required via this expression (FiveM has no global require)
   // runtimeRequire: "_G.myloader",
 
   // resolveHook: (name, importer) => null,

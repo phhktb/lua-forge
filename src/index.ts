@@ -33,15 +33,15 @@ export { parseRequires } from "./parser.js";
 export { isModuleResolveError } from "./resolver.js";
 
 /**
- * bundle จาก entry file -> Lua source string
- * เขียนไฟล์ output ให้ด้วยถ้ามี config.output
+ * Bundle from an entry file -> Lua source string.
+ * Also writes the output file if config.output is set.
  */
 export async function bundle(config: BundlerConfig): Promise<string> {
   const result = await bundleWithStats(config);
   return result.code;
 }
 
-/** เหมือน bundle() แต่คืน stats + graph ด้วย */
+/** Like bundle() but also returns stats + graph. */
 export async function bundleWithStats(
   config: BundlerConfig,
 ): Promise<BundleResult> {
@@ -55,7 +55,7 @@ export async function bundleWithStats(
   return result;
 }
 
-/** bundle จาก source string ตรง ๆ (ไม่เขียนไฟล์) */
+/** Bundle directly from a source string (does not write a file). */
 export async function bundleString(
   source: string,
   config: BundlerConfig = {},
@@ -65,15 +65,15 @@ export async function bundleString(
   return result.code;
 }
 
-/** สร้าง dependency graph อย่างเดียว */
+/** Build the dependency graph only. */
 export async function inspect(config: BundlerConfig): Promise<BundleGraph> {
   const resolved = resolveConfig(config);
   return runInspect(resolved);
 }
 
 /**
- * bundle ทุก entry จาก multi-entry config (เช่น client + server)
- * คืน map: ชื่อ entry -> ผลลัพธ์
+ * Bundle every entry from a multi-entry config (e.g. client + server).
+ * Returns a map: entry name -> result.
  */
 export async function bundleAll(
   config: BundlerConfig,

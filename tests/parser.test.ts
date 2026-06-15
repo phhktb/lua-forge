@@ -37,6 +37,6 @@ describe("parser", () => {
   });
 
   it("throw error ที่ชัดเจนเมื่อ syntax พัง", () => {
-    expect(() => parseRequires(`local = =`)).toThrow(/parse ล้มเหลว/);
+    expect(() => parseRequires(`local = =`)).toThrow(/parse failed/);
   });
 });
