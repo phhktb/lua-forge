@@ -6,7 +6,7 @@ Use it for any Lua runtime: game frameworks, embedded Lua, tooling, or plain sta
 ## Why
 
 - Fast builds (content/stat/resolve/parse caching)
-- Two output modes: `runtime` (handles circular requires) and `flat` (smallest, production-ready)
+- Safe default `runtime` mode (handles circular requires) plus opt-in `flat` for smaller output
 - Clear errors: module name + importer + line/column + searched paths
 - Usable from both the CLI and the API
 - No app-specific logic; no obfuscation/minification by default
@@ -101,7 +101,7 @@ which routes to your `runtimeRequire` expression (or the global `require` by def
 ## CLI
 
 ```bash
-# build (default mode = auto: flat when there is no circular require)
+# build (default mode = runtime)
 lua-forge build --entry src/main.lua --out build/app.lua
 
 # multi-entry: build several outputs from one config
@@ -114,7 +114,7 @@ lua-forge inspect --entry src/main.lua --root .
 lua-forge benchmark --entry src/main.lua --runs 50
 ```
 
-Main flags: `--entry --out --config --mode flat|runtime|auto --target generic|fivem --metadata [true|false|debug] --circular error|runtime-fallback --root --paths --ignore --lua --require-fn --minify --isolate --stats`
+Main flags: `--entry --out --config --mode runtime|flat|auto --target generic|fivem --metadata [true|false|debug] --circular error|runtime-fallback --root --paths --ignore --lua --require-fn --minify --isolate --stats`
 (`--paths` / `--ignore` can be repeated)
 
 ## API
@@ -145,7 +145,7 @@ See [`lua-forge.config.example.ts`](./lua-forge.config.example.ts)
 | --- | --- | --- |
 | `entry` | — | entry file |
 | `output` | — | output path |
-| `mode` | `auto` | `auto` \| `flat` \| `runtime` |
+| `mode` | `runtime` | `runtime` \| `flat` \| `auto` |
 | `circular` | `error` | `error` \| `runtime-fallback` (when flat hits a circular require) |
 | `entries` | — | multi-entry build (several outputs from one config) |
 | `paths` | `["?", "?.lua", "modules/?.lua"]` | package.path-style patterns |
@@ -163,15 +163,17 @@ See [`lua-forge.config.example.ts`](./lua-forge.config.example.ts)
 
 ## Output modes
 
-**auto** (default) — picks flat when there is no circular require; on a circular require it follows `circular`
-(`error` = stop and report the cycle, `runtime-fallback` = switch to runtime automatically)
+**runtime** (default) — uses `__bundle_require` + module factories + a loaded cache (fast path),
+plus localized globals (`type`/`tostring`/`error`); supports circular requires and keeps `require`
+semantics intact.
 
 **flat** — orders modules dependency-first, each module becomes a local var.
-No runtime loader, smaller, faster to load.
-Cannot be used with circular requires (errors, or falls back per `circular`).
+No runtime loader, smaller, faster to load, but opt-in because it rewrites bundled `require`
+calls aggressively. Cannot be used with circular requires (errors, or falls back per `circular`).
 
-**runtime** — has `__bundle_require` + module factories + a loaded cache (fast path),
-plus localized globals (`type`/`tostring`/`error`); supports circular requires.
+**auto** — keeps the old heuristic: picks flat when there is no circular require; on a circular
+require it follows `circular` (`error` = stop and report the cycle, `runtime-fallback` = switch
+to runtime automatically).
 
 ## Hosts without a global `require`
 

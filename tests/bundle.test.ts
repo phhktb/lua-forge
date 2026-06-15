@@ -8,6 +8,16 @@ const fixtures = path.join(here, "fixtures");
 const entry = path.join(fixtures, "client", "main.lua");
 
 describe("bundle runtime mode", () => {
+  it("default mode uses runtime output", async () => {
+    const code = await bundle({
+      entry,
+      root: fixtures,
+      ignoredModuleNames: ["json"],
+    });
+    expect(code).toContain("local function __bundle_require(name)");
+    expect(code).toContain('__bundle_require("__lua_forge_root__")');
+  });
+
   it("สร้าง output ที่มี runtime loader + register module", async () => {
     const code = await bundle({
       entry,

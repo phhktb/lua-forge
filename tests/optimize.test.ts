@@ -76,6 +76,12 @@ describe("target behavior", () => {
 });
 
 describe("runtime output (fast path + localized globals)", () => {
+  it("bundleWithStats default mode resolves to runtime", async () => {
+    const result = await bundleWithStats(base);
+    expect(result.stats.mode).toBe("runtime");
+    expect(result.code).toContain("__bundle_require");
+  });
+
   it("มี fast path สำหรับ module ที่โหลดแล้ว", async () => {
     const code = await bundle({ ...base, mode: "runtime" });
     expect(code).toContain("if entry then return entry.value end");

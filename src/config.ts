@@ -21,8 +21,8 @@ export function resolveConfig(config: BundlerConfig): ResolvedConfig {
   return {
     entry,
     output: config.output ? path.resolve(config.output) : null,
-    // default = "auto": flat when there is no circular, otherwise follow the circular policy
-    mode: config.mode ?? "auto",
+    // default = "runtime": safe require-preserving output unless the caller opts into flat/auto
+    mode: config.mode ?? "runtime",
     paths: config.paths && config.paths.length > 0 ? config.paths : DEFAULT_PATHS,
     root,
     ignoredModuleNames: new Set(config.ignoredModuleNames ?? []),

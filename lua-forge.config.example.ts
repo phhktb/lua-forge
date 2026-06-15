@@ -4,11 +4,11 @@ export default defineConfig({
   // "generic" = standard Lua (has a global require)
   // "fivem" (or any host without a global require) = self-contained output
   target: "generic",
-  // "auto" = flat when there is no circular require, otherwise follow the circular policy
-  mode: "auto",
+  // safe default: runtime preserves require semantics
+  mode: "runtime",
   // false = production (no path leak), true / "debug" = add relative path comments
   metadata: false,
-  // on a circular require in flat: "error" or "runtime-fallback"
+  // when mode = "auto" or "flat", circular can "error" or "runtime-fallback"
   circular: "error",
 
   paths: ["?", "?.lua", "modules/?.lua", "src/?.lua", "src/?/init.lua"],
