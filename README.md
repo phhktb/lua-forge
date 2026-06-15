@@ -192,6 +192,18 @@ client_scripts { 'build/client.lua' }
 server_scripts { 'build/server.lua' }
 ```
 
+## Compatibility
+
+The output is platform-independent by design:
+
+- **Pure ASCII, LF-only** output — no machine paths, no BOM, no CRLF leak from sources
+- **Deterministic** — the same sources produce byte-identical output on any OS (Windows/macOS/Linux)
+- **Any Lua runtime** — generated code uses only standard constructs and runs on Lua 5.1–5.4 and LuaJIT
+- **Standalone** — bundled requires need no external loader; non-bundled ones are configurable per host
+
+The CLI/API run on Node >= 18 on any OS. A `.ts` config additionally needs
+Node >= 22.18 (native type stripping); `.js` / `.mjs` / `.json` configs work on any supported Node.
+
 ## Dev
 
 ```bash

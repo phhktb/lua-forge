@@ -66,8 +66,22 @@ export async function loadConfigFile(configPath: string): Promise<BundlerConfig>
     return JSON.parse(await readFile(abs, "utf8")) as BundlerConfig;
   }
 
-  // .ts/.js/.mjs — relies on Node native type-stripping (Node >= 22.18 / 24)
-  const mod = await import(pathToFileURL(abs).href);
+  // .js/.mjs work on any Node >= 18; .ts relies on native type-stripping (Node >= 22.18)
+  let mod: Record<string, unknown>;
+  try {
+    mod = await import(pathToFileURL(abs).href);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/\.[mc]?ts$/.test(abs)) {
+      throw new Error(
+        `failed to load TypeScript config: ${configPath}\n` +
+          `  ${message}\n` +
+          `  .ts config needs Node >= 22.18 (type stripping). ` +
+          `On older Node, use a .js / .mjs / .json config instead.`,
+      );
+    }
+    throw error;
+  }
   const config = (mod.default ?? mod) as BundlerConfig;
   if (!config || typeof config !== "object") {
     throw new Error(`config file did not export a config object: ${configPath}`);

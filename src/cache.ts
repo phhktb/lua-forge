@@ -31,6 +31,17 @@ interface PersistentEntry {
   result: ParseResult;
 }
 
+/**
+ * Normalize source so output is byte-identical on any platform:
+ * - strip a leading UTF-8 BOM
+ * - convert CRLF / lone CR to LF (independent of OS / git autocrlf)
+ * Done once at read time so parser ranges stay consistent with the stored source.
+ */
+function normalizeSource(source: string): string {
+  const noBom = source.charCodeAt(0) === 0xfeff ? source.slice(1) : source;
+  return noBom.replace(/\r\n?/g, "\n");
+}
+
 export function createCache(persistentPath: string | false): BuildCache {
   const contentCache = new Map<string, string>();
   const existsCache = new Map<string, boolean>();
@@ -63,7 +74,7 @@ export function createCache(persistentPath: string | false): BuildCache {
     if (cached !== undefined) {
       return cached;
     }
-    const source = await readFile(path, "utf8");
+    const source = normalizeSource(await readFile(path, "utf8"));
     counters.filesRead++;
     contentCache.set(path, source);
     existsCache.set(path, true);
@@ -125,9 +136,10 @@ export function createCache(persistentPath: string | false): BuildCache {
   }
 
   function seed(path: string, source: string): void {
-    contentCache.set(path, source);
+    const normalized = normalizeSource(source);
+    contentCache.set(path, normalized);
     existsCache.set(path, true);
-    contentHash.set(path, createHash("sha1").update(source).digest("hex"));
+    contentHash.set(path, createHash("sha1").update(normalized).digest("hex"));
   }
 
   return {

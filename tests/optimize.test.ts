@@ -106,6 +106,28 @@ describe("auto mode", () => {
   });
 });
 
+describe("cross-platform output", () => {
+  it("output has no CR (LF only) even from CRLF source", async () => {
+    const crlf = `local f = require("modules.format")\r\nreturn f.bold("x")\r\n`;
+    const code = await bundleString(crlf, { root: fixtures, mode: "flat" });
+    expect(code).not.toContain("\r");
+  });
+
+  it("CRLF and LF sources produce identical output", async () => {
+    const lf = `local f = require("modules.format")\nreturn f.bold("x")\n`;
+    const crlf = lf.replace(/\n/g, "\r\n");
+    const fromLf = await bundleString(lf, { root: fixtures, mode: "flat" });
+    const fromCrlf = await bundleString(crlf, { root: fixtures, mode: "flat" });
+    expect(fromCrlf).toBe(fromLf);
+  });
+
+  it("strips a leading UTF-8 BOM", async () => {
+    const withBom = `﻿return require("modules.format")`;
+    const code = await bundleString(withBom, { root: fixtures, mode: "flat" });
+    expect(code.charCodeAt(0)).not.toBe(0xfeff);
+  });
+});
+
 describe("build stats", () => {
   it("นับ filesRead / filesParsed = จำนวน module", async () => {
     const result = await bundleWithStats({ ...base, mode: "flat" });

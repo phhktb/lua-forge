@@ -56,8 +56,8 @@ export interface RequireHelper {
  * Decide how modules that are not bundled get required.
  * - isolate: always error (fully closed bundle)
  * - runtimeRequire set: use the user-provided expression
- * - target generic: use the global require (standard Lua has it)
- * - target fivem (default): clear error, since FiveM has no global require
+ * - target generic (default): use the global require (standard Lua has it)
+ * - any other target (host without a global require): clear error
  */
 export function buildRequireHelper(config: ResolvedConfig): RequireHelper {
   const call = (name: string) => `${REQUIRE_HELPER}(${luaString(name)})`;
@@ -70,7 +70,7 @@ export function buildRequireHelper(config: ResolvedConfig): RequireHelper {
     return { decl: `local ${REQUIRE_HELPER} = require`, call };
   }
 
-  // fivem (default) or isolate -> do not rely on a global require, error clearly
+  // host without a global require, or isolate -> do not rely on a global require, error clearly
   const decl =
     `local function ${REQUIRE_HELPER}(name)\n` +
     `  error("lua-forge: module '" .. name .. "' was not bundled " ..\n` +
