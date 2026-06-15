@@ -58,12 +58,20 @@ export function generateFlat(
       const depVar = varByPath.get(dep.path);
       if (depVar) nameToVar.set(dep.name, depVar);
     }
-    const transformed = replaceRequires(node, (name) => {
-      const depVar = nameToVar.get(name);
-      if (depVar) return depVar;
+    const transformed = replaceRequires(node, (call) => {
+      const depVar = nameToVar.get(call.name);
+      if (depVar) {
+        if (call.statementRange) {
+          return {
+            replacement: depVar,
+            statementReplacement: "",
+          };
+        }
+        return depVar;
+      }
       // require that is not bundled (ignored) -> go through helper, never keep raw global require
       usedRequireHelper = true;
-      return requireHelper.call(name);
+      return requireHelper.call(call.name);
     }).trim();
 
     if (path === graph.rootPath) {

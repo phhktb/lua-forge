@@ -33,6 +33,11 @@ function getRange(node: LuaNode): [number, number] {
   return range ?? [0, 0];
 }
 
+function getStatementRange(node: LuaNode | null | undefined): [number, number] | null {
+  if (!node || node.type !== "CallStatement") return null;
+  return getRange(node);
+}
+
 /** Extract the string value from a StringLiteral node. */
 function stringValue(node: LuaNode): string | null {
   if (node.type !== "StringLiteral") return null;
@@ -74,7 +79,11 @@ export function parseRequires(
   const requires: RequireCall[] = [];
   const dynamic: DynamicRequire[] = [];
 
-  function handleRequire(callNode: LuaNode, arg: LuaNode | undefined): void {
+  function handleRequire(
+    callNode: LuaNode,
+    arg: LuaNode | undefined,
+    parent: LuaNode | null,
+  ): void {
     if (!arg) return;
     const name = stringValue(arg);
     if (name !== null) {
@@ -82,6 +91,7 @@ export function parseRequires(
         name,
         loc: getLoc(callNode),
         range: getRange(callNode),
+        statementRange: getStatementRange(parent),
       });
       return;
     }
@@ -93,17 +103,17 @@ export function parseRequires(
     });
   }
 
-  function walk(node: LuaNode | null | undefined): void {
+  function walk(node: LuaNode | null | undefined, parent: LuaNode | null = null): void {
     if (!node || typeof node !== "object") return;
 
     if (node.type === "CallExpression" && isRequireBase(node.base as LuaNode)) {
       const args = node.arguments as LuaNode[] | undefined;
-      handleRequire(node, args?.[0]);
+      handleRequire(node, args?.[0], parent);
     } else if (
       node.type === "StringCallExpression" &&
       isRequireBase(node.base as LuaNode)
     ) {
-      handleRequire(node, node.argument as LuaNode);
+      handleRequire(node, node.argument as LuaNode, parent);
     }
 
     // walk every child node
@@ -111,9 +121,9 @@ export function parseRequires(
       if (key === "loc" || key === "range" || key === "type") continue;
       const value = node[key];
       if (Array.isArray(value)) {
-        for (const item of value) walk(item as LuaNode);
+        for (const item of value) walk(item as LuaNode, node);
       } else if (value && typeof value === "object") {
-        walk(value as LuaNode);
+        walk(value as LuaNode, node);
       }
     }
   }

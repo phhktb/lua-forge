@@ -33,6 +33,11 @@ export interface RequireCall {
   loc: SourceLocation;
   /** Index range [start, end] in the source, for flat-mode replacement. */
   range: [number, number];
+  /**
+   * Whole statement range when require(...) is used as a standalone statement.
+   * Flat mode can drop the whole statement for bundled side-effect imports.
+   */
+  statementRange: [number, number] | null;
 }
 
 /** A require whose argument is not a string literal (dynamic). */

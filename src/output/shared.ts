@@ -52,6 +52,11 @@ export interface RequireHelper {
   call(name: string): string;
 }
 
+export interface RequireReplacement {
+  replacement: string | null;
+  statementReplacement?: string | null;
+}
+
 /**
  * Decide how modules that are not bundled get required.
  * - isolate: always error (fully closed bundle)
@@ -113,16 +118,29 @@ export function lightMinify(code: string): string {
  */
 export function replaceRequires(
   node: ModuleNode,
-  resolve: (name: string) => string | null,
+  resolve: (call: ModuleNode["requires"][number]) => string | RequireReplacement | null,
 ): string {
   const edits = node.requires
-    .map((call) => ({ call, replacement: resolve(call.name) }))
-    .filter((edit) => edit.replacement !== null)
-    .sort((a, b) => b.call.range[0] - a.call.range[0]);
+    .map((call) => {
+      const resolved = resolve(call);
+      if (resolved === null) return null;
+
+      const edit =
+        typeof resolved === "string" ? { replacement: resolved } : resolved;
+      const useStatementRange =
+        edit.statementReplacement !== undefined && call.statementRange;
+      const range = useStatementRange ? call.statementRange! : call.range;
+      const replacement = useStatementRange
+        ? edit.statementReplacement ?? ""
+        : edit.replacement;
+      return { range, replacement };
+    })
+    .filter((edit) => edit !== null)
+    .sort((a, b) => b.range[0] - a.range[0]);
 
   let source = node.source;
   for (const edit of edits) {
-    const [start, end] = edit.call.range;
+    const [start, end] = edit.range;
     source = source.slice(0, start) + edit.replacement + source.slice(end);
   }
   return source;

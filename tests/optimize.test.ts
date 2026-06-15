@@ -2,6 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { bundle, bundleString, bundleWithStats } from "../src/index.js";
+import { parseRequires } from "../src/parser.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixtures = path.join(here, "fixtures");
@@ -34,6 +35,15 @@ describe("flat output (production)", () => {
     // ไม่เหลือ require ดิบของ module ที่ bundle ได้
     expect(code).not.toContain('require("utils")');
     expect(code).not.toContain('require("modules.format")');
+  });
+
+  it("side-effect require statement ไม่ปล่อย bare __mod alias", async () => {
+    const code = await bundleString(`require("modules.format")\nreturn 1\n`, {
+      root: fixtures,
+      mode: "flat",
+    });
+    expect(() => parseRequires(code)).not.toThrow();
+    expect(code).not.toContain("\n__mod_format_0\n");
   });
 
   it("ignored module -> __lf_require (ไม่ใช่ global require ดิบ)", async () => {

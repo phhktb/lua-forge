@@ -24,6 +24,13 @@ describe("parser", () => {
     expect(source.slice(start, end)).toBe(`require("mod")`);
   });
 
+  it("เก็บ statementRange เมื่อ require เป็น statement เดี่ยว", () => {
+    const source = `require("mod")\nlocal x = require("other")`;
+    const result = parseRequires(source);
+    expect(result.requires[0].statementRange).toEqual([0, 14]);
+    expect(result.requires[1].statementRange).toBeNull();
+  });
+
   it("แยก dynamic require (arg ไม่ใช่ literal)", () => {
     const result = parseRequires(`local n = "x"\nlocal m = require(n)`);
     expect(result.requires).toHaveLength(0);
