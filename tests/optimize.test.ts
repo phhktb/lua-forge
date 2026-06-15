@@ -42,6 +42,29 @@ describe("flat output (production)", () => {
   });
 });
 
+describe("target behavior", () => {
+  it("generic (default) routes unbundled require to global require", async () => {
+    const code = await bundle({ ...base, mode: "flat" });
+    expect(code).toContain("local __lf_require = require");
+  });
+
+  it("fivem raises a clear error for unbundled modules", async () => {
+    const code = await bundle({ ...base, mode: "flat", target: "fivem" });
+    expect(code).toContain("was not bundled");
+    expect(code).not.toContain("local __lf_require = require");
+  });
+
+  it("runtimeRequire overrides the default loader", async () => {
+    const code = await bundle({
+      ...base,
+      mode: "flat",
+      target: "fivem",
+      runtimeRequire: "_G.myloader",
+    });
+    expect(code).toContain("local __lf_require = _G.myloader");
+  });
+});
+
 describe("runtime output (fast path + localized globals)", () => {
   it("มี fast path สำหรับ module ที่โหลดแล้ว", async () => {
     const code = await bundle({ ...base, mode: "runtime" });
@@ -55,7 +78,7 @@ describe("runtime output (fast path + localized globals)", () => {
 });
 
 describe("auto mode", () => {
-  it("target fivem ไม่ circular -> flat", async () => {
+  it("no circular -> flat", async () => {
     const result = await bundleWithStats({ ...base, mode: "auto" });
     expect(result.stats.mode).toBe("flat");
   });

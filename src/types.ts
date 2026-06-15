@@ -83,7 +83,7 @@ export interface BundlerConfig {
   ignoredModuleNames?: string[];
   /** Metadata comments in the output (false=production, true, "debug"). */
   metadata?: MetadataMode;
-  /** What to do when flat mode hits a circular require (default fivem = "error"). */
+  /** What to do when flat mode hits a circular require (default = "error"). */
   circular?: CircularMode;
   minify?: boolean;
   /** Isolate the global require inside the bundle (runtime mode). */
@@ -92,9 +92,9 @@ export interface BundlerConfig {
   target?: BundleTarget;
   /**
    * Lua expression used to require modules that are not bundled (ignored/dynamic).
-   * - target "generic": default = "require" (standard Lua has require)
-   * - target "fivem": default = none -> clear error (FiveM has no global require)
-   * e.g. set to "exports.myloader.require" or "_G.require" if you have a polyfill.
+   * - target "generic" (default): uses the global "require" (standard Lua has it)
+   * - target "fivem": no global require -> clear error unless this is set
+   * e.g. set to "exports.myloader.require" or "_G.require" if you have a custom loader.
    */
   runtimeRequire?: string;
   resolveHook?: ResolveHook;

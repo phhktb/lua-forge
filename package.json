@@ -1,7 +1,14 @@
 {
   "name": "lua-forge",
   "version": "0.1.0",
-  "description": "Fast, modular Lua bundler for FiveM (Node.js + TypeScript)",
+  "description": "Fast, modular Lua bundler — combine many Lua files into one",
+  "keywords": [
+    "lua",
+    "bundler",
+    "require",
+    "bundle",
+    "module"
+  ],
   "type": "module",
   "license": "MIT",
   "bin": {
@@ -24,7 +31,8 @@
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "cac": "^6.7.14",

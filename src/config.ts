@@ -31,7 +31,7 @@ export function resolveConfig(config: BundlerConfig): ResolvedConfig {
     minify: config.minify ?? false,
     isolate: config.isolate ?? false,
     luaVersion: config.luaVersion ?? "5.4",
-    target: config.target ?? "fivem",
+    target: config.target ?? "generic",
     runtimeRequire: config.runtimeRequire ?? null,
     resolveHook: config.resolveHook ?? null,
     dynamicRequireHook: config.dynamicRequireHook ?? null,
