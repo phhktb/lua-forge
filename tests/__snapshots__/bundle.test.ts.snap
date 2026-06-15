@@ -1,0 +1,115 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`bundle flat mode > snapshot flat output 1`] = `
+"local function __lf_require(name)
+  error("lua-forge: module '" .. name .. "' ไม่ถูก bundle " ..
+    "(target=fivem ไม่มี global require) — เพิ่ม module เข้า bundle หรือกำหนด config.runtimeRequire", 2)
+end
+
+local __mod_format_0 = (function()
+  local format = {}
+
+  function format.bold(text)
+    return "**" .. text .. "**"
+  end
+
+  return format
+end)()
+
+local __mod_utils_1 = (function()
+  local format = __mod_format_0
+
+  local utils = {}
+
+  function utils.greet(name)
+    return format.bold("hello " .. name)
+  end
+
+  return utils
+end)()
+
+local __mod_config_2 = (function()
+  return {
+    name = "fivem",
+    version = "1.0.0",
+  }
+end)()
+
+local utils = __mod_utils_1
+local config = __mod_config_2
+local json = __lf_require("json")
+
+local function start()
+  print(utils.greet(config.name))
+  return json.encode({ ok = true })
+end
+
+start()
+"
+`;
+
+exports[`bundle runtime mode > snapshot runtime output 1`] = `
+"local function __lf_require(name)
+  error("lua-forge: module '" .. name .. "' ไม่ถูก bundle " ..
+    "(target=fivem ไม่มี global require) — เพิ่ม module เข้า bundle หรือกำหนด config.runtimeRequire", 2)
+end
+local error, type, tostring = error, type, tostring
+local __modules = {}
+local __loaded = {}
+local function __bundle_require(name)
+  local entry = __loaded[name]
+  if entry then return entry.value end
+  local factory = __modules[name]
+  if not factory then return __lf_require(name) end
+  entry = { value = true }
+  __loaded[name] = entry
+  local result = factory(__bundle_require)
+  if result ~= nil then entry.value = result end
+  return entry.value
+end
+
+__modules["modules.format"] = function(require)
+  local format = {}
+
+  function format.bold(text)
+    return "**" .. text .. "**"
+  end
+
+  return format
+end
+
+__modules["utils"] = function(require)
+  local format = require("modules.format")
+
+  local utils = {}
+
+  function utils.greet(name)
+    return format.bold("hello " .. name)
+  end
+
+  return utils
+end
+
+__modules["shared.config"] = function(require)
+  return {
+    name = "fivem",
+    version = "1.0.0",
+  }
+end
+
+__modules["__lua_forge_root__"] = function(require)
+  local utils = require("utils")
+  local config = require("shared.config")
+  local json = require("json")
+
+  local function start()
+    print(utils.greet(config.name))
+    return json.encode({ ok = true })
+  end
+
+  start()
+end
+
+return __bundle_require("__lua_forge_root__")
+"
+`;
